@@ -1,0 +1,8 @@
+# Core
+pytest>=8.0
+
+# Backends. Install only the one you use.
+# boto3>=1.34             # AWS Bedrock
+# azure-ai-inference>=1.0 # Azure AI Foundry
+# google-genai>=1.0       # Google Gemini Enterprise Agent Platform
+# openai>=1.0             # Any OpenAI-compatible server (Ollama, vLLM, llama.cpp)

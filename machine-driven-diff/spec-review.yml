@@ -1,0 +1,63 @@
+name: spec-review
+
+on: pull_request
+
+# Advisory. Never a merge gate.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the selected backend
+        env:
+          REVIEW_BACKEND: ${{ vars.REVIEW_BACKEND || 'bedrock' }}
+        run: |
+          case "$REVIEW_BACKEND" in
+            bedrock) pip install boto3 ;;
+            foundry) pip install azure-ai-inference ;;
+            gemini)  pip install google-genai ;;
+            local)   pip install openai ;;
+          esac
+
+      # Swap this step for your provider's auth. OIDC federation is preferred
+      # over long-lived secrets for all four.
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: vars.REVIEW_BACKEND == 'bedrock' || vars.REVIEW_BACKEND == ''
+        with:
+          role-to-assume: ${{ secrets.AWS_REVIEW_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Spec-anchored review
+        id: review
+        env:
+          REVIEW_BACKEND: ${{ vars.REVIEW_BACKEND || 'bedrock' }}
+          BEDROCK_MODEL_ID: ${{ vars.BEDROCK_MODEL_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python -m review.cli > review.md
+
+      - name: Post as a comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('fs').readFileSync('review.md', 'utf8');
+            if (body.trim() && !body.includes('No spec violations found')) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            }

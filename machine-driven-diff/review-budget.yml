@@ -1,0 +1,39 @@
+name: review-budget
+
+on: pull_request
+
+jobs:
+  size-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce change budget
+        env:
+          MAX_LINES: 400
+          MAX_FILES: 15
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          # Generated and vendored paths do not consume the budget.
+          EXCLUDE=':(exclude)**/*.lock' \
+                  ':(exclude)**/package-lock.json' \
+                  ':(exclude)**/vendor/**' \
+                  ':(exclude)**/*_pb2.py'
+
+          CHANGED=$(git diff --numstat "$BASE" "$HEAD" -- . $EXCLUDE \
+            | awk '{ added += $1; removed += $2 } END { print added + removed + 0 }')
+          FILES=$(git diff --name-only "$BASE" "$HEAD" -- . $EXCLUDE | wc -l)
+
+          echo "Reviewable change: $CHANGED lines across $FILES files"
+          echo "Budget: $MAX_LINES lines / $MAX_FILES files"
+
+          if [ "$CHANGED" -gt "$MAX_LINES" ] || [ "$FILES" -gt "$MAX_FILES" ]; then
+            echo "::error::This PR exceeds the review budget."
+            echo "Split it into one pull request per decision."
+            echo "An unreviewable PR is not a contribution. It is a transfer of work."
+            exit 1
+          fi
