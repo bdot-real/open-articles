@@ -1,0 +1,33 @@
+# Open source. Enforcement is native, inline, and multi-provider.
+#
+# Budgets are evaluated on every request before the call reaches the provider,
+# which is the property that matters. Async billing data cannot stop spending.
+#
+# Redis is not optional in production. Per-process counters are not a budget,
+# they are a budget multiplied by your replica count.
+
+model_list:
+  - model_name: frontier
+    litellm_params:
+      model: bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0
+      aws_region_name: os.environ/AWS_REGION
+  - model_name: small
+    litellm_params:
+      model: ollama/qwen2.5:7b
+      api_base: os.environ/OLLAMA_BASE_URL
+
+router_settings:
+  redis_host: os.environ/REDIS_HOST
+  redis_port: os.environ/REDIS_PORT
+  # Fall back to the cheap model when the expensive one is unavailable.
+  fallbacks: [{"frontier": ["small"]}]
+
+litellm_settings:
+  # Anyone without an explicit budget gets a small default rather than none.
+  default_internal_user_params:
+    max_budget: 50
+    budget_duration: 30d
+  success_callback: ["prometheus"]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

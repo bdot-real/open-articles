@@ -1,0 +1,63 @@
+name: prompt-cost
+
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install tiktoken pyyaml
+
+      - name: Estimate monthly cost delta
+        id: estimate
+        run: |
+          python -m tools.prompt_cost_diff \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            > cost.md
+          echo "has_output=$([ -s cost.md ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on the PR
+        if: steps.estimate.outputs.has_output == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('fs').readFileSync('cost.md', 'utf8');
+            const marker = '## Prompt cost estimate';
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner, repo: context.repo.repo,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                comment_id: existing.id, owner: context.repo.owner,
+                repo: context.repo.repo, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number, owner: context.repo.owner,
+                repo: context.repo.repo, body,
+              });
+            }
+
+      # Advisory by default. Uncomment to make a large delta require a second
+      # approval, the way an expensive Terraform change would.
+      # - name: Gate on threshold
+      #   run: |
+      #     python -m tools.prompt_cost_diff \
+      #       --base "${{ github.event.pull_request.base.sha }}" \
+      #       --head "${{ github.event.pull_request.head.sha }}" \
+      #       --fail-over-threshold > /dev/null

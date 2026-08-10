@@ -1,0 +1,47 @@
+<!--
+Azure. Enforcement is native, and it is inline.
+
+API Management in front of AI Foundry. One policy block gives per-consumer
+token limits and dimensioned metrics, evaluated before the request reaches the
+model. This is the chokepoint the article argues for, sold as a product.
+
+estimate-prompt-tokens="false" counts actual tokens from the response, which is
+more accurate but throttles later. Setting it true throttles earlier and
+sometimes rejects requests that would have been within budget. Pick based on
+whether you are protecting a budget or protecting a downstream quota.
+
+Prefer tiered limits by APIM product over one global ceiling, so a batch job on
+one team does not throttle everybody.
+-->
+<policies>
+  <inbound>
+    <base />
+
+    <llm-token-limit
+        counter-key="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id","anonymous"))"
+        tokens-per-minute="20000"
+        estimate-prompt-tokens="false"
+        remaining-tokens-variable-name="tokensRemaining"
+        retry-after-header-name="Retry-After"
+        retry-after-variable-name="retryAfter" />
+
+    <llm-emit-token-metric namespace="llm.usage">
+      <dimension name="TenantId"
+                 value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id","anonymous"))" />
+      <dimension name="Feature"
+                 value="@(context.Request.Headers.GetValueOrDefault("X-Feature","unknown"))" />
+      <dimension name="Environment" value="prod" />
+    </llm-emit-token-metric>
+  </inbound>
+
+  <outbound>
+    <base />
+    <set-header name="X-Tokens-Remaining" exists-action="override">
+      <value>@(context.Variables.GetValueOrDefault<string>("tokensRemaining",""))</value>
+    </set-header>
+  </outbound>
+
+  <on-error>
+    <base />
+  </on-error>
+</policies>

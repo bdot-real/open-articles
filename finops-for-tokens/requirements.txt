@@ -1,0 +1,12 @@
+pytest>=8.0
+
+# Optional. The cost estimator falls back to a chars/4 approximation without it.
+# tiktoken>=0.7
+# pyyaml>=6.0
+
+# Production only.
+# redis>=5.0
+
+# Install whichever provider you use.
+# boto3>=1.34              # AWS Bedrock
+# google-genai>=1.0        # Google Gemini Enterprise Agent Platform

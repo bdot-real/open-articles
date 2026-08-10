@@ -1,0 +1,6 @@
+# Assumptions used by tools/prompt_cost_diff.py.
+# These should reflect your production traffic, not a guess.
+requests_per_day: 100000
+tier: frontier
+cached: false
+warn_threshold_monthly: 500.0

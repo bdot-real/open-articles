@@ -1,0 +1,19 @@
+# make gateway
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    depends_on: [redis]
+    ports: ["4000:4000"]
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-local-dev}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
