@@ -1,0 +1,9 @@
+scipy>=1.11
+pytest>=8.0
+
+# Platform scripts only. Install the one you need.
+# boto3>=1.34                        # Bedrock Evaluations
+# azure-ai-evaluation>=1.0           # Azure AI Foundry
+# azure-identity>=1.17
+# google-cloud-aiplatform>=1.60      # Vertex Gen AI Evaluation
+# promptfoo is npm: npx promptfoo@latest

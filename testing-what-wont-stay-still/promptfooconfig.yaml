@@ -1,0 +1,43 @@
+# Open source. The ordering is the point, not the tool.
+#
+# Deterministic assertions first. The judge only for what survives them. Every
+# assertion moved up this list stops costing money and starts passing 100% of
+# the time.
+#
+#   npx promptfoo@latest eval -c platforms/promptfooconfig.yaml
+
+prompts:
+  - file://prompts/extract_v2.txt
+
+providers:
+  - id: bedrock:anthropic.claude-sonnet-4-5-v1:0
+    config: {temperature: 0, max_tokens: 512}
+
+defaultTest:
+  assert:
+    # --- layer 1: deterministic. Free, and passes every time. ---
+    - type: is-json
+      value:
+        type: object
+        required: [title, start, end, timezone, attendees]
+        properties:
+          timezone: {type: string, pattern: "^[A-Za-z_]+/[A-Za-z_/]+$"}
+
+    - type: javascript
+      value: |
+        const b = JSON.parse(output);
+        // Grounding as a substring check. No judge required.
+        const src = context.vars.input.toLowerCase();
+        if (!b.attendees.every(a => src.includes(a.toLowerCase())))
+          return {pass: false, reason: 'invented an attendee'};
+        if (new Date(b.end) <= new Date(b.start))
+          return {pass: false, reason: 'end precedes start'};
+        return {pass: true};
+
+tests:
+  - vars:
+      input: "book a standup with Dana on Sunday morning, 30 minutes, Toronto time"
+    assert:
+      # --- layer 3: the residue, and only the residue ---
+      - type: llm-rubric
+        value: the title reflects the purpose of the meeting

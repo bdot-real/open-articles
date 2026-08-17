@@ -1,0 +1,20 @@
+name: reproduce
+
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+
+      # The point of the article: this gate is deterministic. It passes 100%
+      # of the time and fails for exactly one reason. No provider is called.
+      - name: Tests
+        run: python -m pytest tests -v
+
+      - name: Reproduce every table
+        run: make reproduce
