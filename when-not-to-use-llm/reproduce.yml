@@ -1,0 +1,18 @@
+name: reproduce
+
+on: [push, pull_request]
+
+# The article claims every number is checkable. This is what makes that true.
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m pytest tests -v
+      - name: Reproduce every table
+        run: make reproduce

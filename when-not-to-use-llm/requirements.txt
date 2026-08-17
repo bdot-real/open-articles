@@ -1,0 +1,9 @@
+numpy>=1.26
+scikit-learn>=1.5
+pytest>=8.0
+
+# Platform scripts only. Install the one you need.
+# sagemaker>=2.200          # AWS
+# azure-ai-ml>=1.20         # Azure
+# azure-identity>=1.17
+# google-cloud-aiplatform>=1.60   # Google
