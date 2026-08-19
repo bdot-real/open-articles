@@ -1,159 +1,155 @@
-# Testing What Will Not Sit Still
+# Deploying a Prompt Is a Production Change
 
-Companion code for the article. No credentials, no provider calls, about five
-seconds to run.
+Companion code. No credentials, no provider calls, about five seconds.
 
 ```bash
 pip install -r requirements.txt
 make reproduce && make test
 ```
 
-## The problem, as arithmetic
+"Put prompts in version control" is the standard advice and it is not enough.
+Prompt deployment has three properties code deployment does not, and the
+release toolkit handles none of them.
+
+## One: the deployable unit is a pair
 
 ```bash
-make flakiness
+make versions
 ```
 
-| Per-test pass rate | 10 tests | 50 | 100 | 200 | 500 |
+| Week | Prompt | Alias configured | Version served | Quality | |
 |---|---|---|---|---|---|
-| 99.9% | 99.0% | 95.1% | 90.5% | 81.9% | 60.6% |
-| 99% | 90.4% | 60.5% | 36.6% | **13.4%** | 0.7% |
-| 98% | 81.7% | 36.4% | 13.3% | 1.8% | 0.0% |
-| 95% | 59.9% | 7.7% | 0.6% | 0.0% | 0.0% |
+| 1 | v3 | sonnet-4-5 | ...-20250929 | 0.84 | steady |
+| 3 | v3 | sonnet-4-5 | **...-20251120** | **0.71** | provider moved the alias |
+| 4 | v4 | sonnet-4-5 | ...-20251120 | 0.82 | patched to compensate |
+| 6 | v5 | sonnet-4-5 | ...-20251120 | 0.69 | bad deploy |
 
-Non-deterministic tests do not compose. At 99% per test, six tests is enough to
-make a suite red more than 5% of runs. Then someone adds a retry, then another,
-then failures get triaged as "probably flaky", and within a quarter nobody
-reads the output. A suite nobody reads is the same as no suite, except more
-expensive and more reassuring.
+Week three is the hardest incident class here. Nobody deployed, quality fell
+twelve points, and there is no changelog entry because there was no change on
+your side.
 
-Setting temperature to zero does not fix this. Greedy decoding is not
-deterministic inference: floating point addition is not associative, so a
-batched forward pass can produce different logits depending on batch
-composition, and provider aliases move under you. You get a large variance
-reduction and no guarantee.
+Week six shows the cost. Your changelog says v3 scored 0.84, and it did,
+against a model that no longer answers to that alias. On today's model v3
+scores 0.71, so reverting on prompt history recovers two points. Reverting to
+v4, the last release good *against the model that will actually run*, recovers
+thirteen.
 
-## The fix is layering
-
-```bash
-make layers
-```
-
-```
-layer             count   share  cost to run           reliability
---------------------------------------------------------------------
-deterministic        15     62%  free, no model call   100%
-property              5     21%  cached responses      100%
-judge                 4     17%  model call per sample measured, ~85%
-```
-
-The catalogue in [`evals/coverage_split.py`](evals/coverage_split.py) is mine,
-so the precise 83% is a property of the list I wrote. The defensible claim is
-directional: for any feature with a structured output, the large majority of
-real failure modes are deterministically checkable, and most teams have
-inverted the ratio.
-
-Including this one, which is the flagship LLM-as-judge use case:
+[`deploy/release.py`](deploy/release.py) makes the pair the unit and refuses
+aliases at construction:
 
 ```python
-# Grounding, checked without a judge. An attendee who does not appear in
-# the source text was invented, and no amount of fluent prose makes that
-# acceptable. This is the check people assume needs an LLM.
-invented = [a for a in attendees if a.lower() not in source_text.lower()]
+>>> Release("extract", "prompt text", "sonnet-4-5")
+UnpinnedModel: 'sonnet-4-5' looks like an alias. Pin the dated version,
+or you cannot roll back to a pairing that existed.
 ```
 
-[`booking/recorded.py`](booking/recorded.py) holds six real failure shapes,
-every one of which reads as confident and correct. None survives a schema.
-One of them caught a bug in my own validator: `"EST"` is present in the tz
-database and is still wrong, because it is a fixed offset with no DST rules, so
-a recurring appointment stored against it silently stops shifting with the
-clocks. There is now a test for it.
+Both rules are free: pin dated versions, and record the pair on every response.
 
-Fixtures, not mocks. A mock encodes what you believe the model does. A
-recording encodes what it did.
-
-## The judge is an instrument nobody calibrates
+## Two: your canary is statistically blind
 
 ```bash
-make judge
+make canary
 ```
 
-An imperfect judge does not just add noise. It **shrinks the effect you are
-trying to detect**:
+At 100,000 requests/day, canarying at 5%:
+
+| Window | Samples | Quality regression detectable (85/85 judge) | Schema-failure rise detectable |
+|---|---|---|---|
+| 1 hour | 208 | **18.7%** | **3.87%** |
+| 6 hours | 1,250 | 7.4% | 0.78% |
+| 1 day | 5,000 | 3.7% | 0.27% |
+| 1 week | 35,000 | 1.4% | 0.08% |
+
+A one-hour canary cannot see a quality regression under nineteen points.
+Nineteen points is not a regression, it is a fire. But the same 208 samples see
+a schema failure rise of under four points, because binomial variance collapses
+near zero. **Rare-event detection is statistically cheap.**
+
+So [`deploy/canary_gate.py`](deploy/canary_gate.py) gates on deterministic
+near-zero signals and refuses to rule on anything it lacks the power to see:
 
 ```
-observed_gap = true_gap * (sensitivity + specificity - 1)
+5% schema failures   pass=False  rose 4.90%, above the 3.87% detectable at n=208
+tiny rise            pass=True   warn: rose 0.05% but 208 samples can only see 3.87%
 ```
 
-Samples per arm to detect a regression, 80% power, 5% significance, from an 80%
-baseline:
+An earlier version of that gate multiplied the detectable floor by a tolerance,
+which let a jump from 0.1% to 5% schema failures pass. There is now a test named
+after it.
 
-| Judge quality | J | 10 pt | 5 pt | 2 pt |
-|---|---|---|---|---|
-| Perfect | 1.00 | 294 | 1,094 | 6,510 |
-| Excellent, 95/95 | 0.90 | 386 | 1,462 | 8,811 |
-| Good, 90/90 | 0.80 | 514 | 1,977 | 12,029 |
-| Typical, 85/85 | 0.70 | 702 | 2,728 | 16,722 |
-| Weak, 75/75 | 0.50 | 1,471 | 5,804 | 35,943 |
+**Shadow, do not canary, for quality.** One hour of shadow at 100% matches a
+full day of canary at 5%; six hours matches a week. Blast radius is zero
+because nothing produced is served. The first draft of the article claimed
+shadow simply beats canary, which is false at these settings: 5% of a day is
+5,000 samples against shadow's 4,166 in an hour. Shadowing compresses the
+waiting, not the sample count.
 
-Read the other way, which is how it gets used:
+## Three: rollback does not undo what you wrote
 
-| Samples per arm | Perfect judge | 85/85 judge |
+```bash
+make blast
+```
+
+```
+bad_records = request_rate × time_to_detect × fraction_wrong
+```
+
+Rollback time is not in that expression.
+
+| Detection | MTTD | Bad records | Remediation |
+|---|---|---|---|
+| Deterministic canary alarm | 0.1h | 20 | $8 |
+| Shadow comparison, hourly | 1.0h | 249 | $100 |
+| Judge-based canary at 5% | 30h | 7,500 | $3,000 |
+| Customer reports it | 120h | 30,000 | $12,000 |
+
+A factor of 1,500, and a five second revert behind a five day detection is
+still a five day incident.
+
+The architectural lever is [`deploy/two_phase.py`](deploy/two_phase.py). Same
+detection time in all three rows below; the only difference is whether a wrong
+output could reach durable state without a check:
+
+| | Bad records | Remediation |
 |---|---|---|
-| 50 | 26.0% | **39.1%** |
-| 100 | 17.9% | 27.4% |
-| 1,000 | 5.2% | 8.3% |
-| 5,000 | 2.3% | 3.7% |
+| Write directly to the store | 30,000 | $12,000 |
+| Quarantine low-confidence for review | 13,499 | $5,400 |
+| Two-phase: stage, verify, commit | 2,399 | $960 |
 
-**A fifty-example eval set with a decent judge cannot see a regression smaller
-than about thirty-nine points.** Fifty examples is a normal eval set. Teams run
-them as merge gates believing they catch five-point regressions.
-
-One correction worth noting, because the article's first draft got it wrong.
-The cost of a bad judge is often quoted as 1/J², which is a floor rather than
-the answer. The shrunken gap accounts for that much; the rest comes from the
-judge pulling both observed rates toward 0.5 where binomial variance is
-largest. For an 85/85 judge, 1/J² predicts 2.04x and the measured cost is 2.5x.
-`test_sample_size_cost_exceeds_the_one_over_j_squared_approximation` pins it.
+Quarantine depth is also the fastest alarm you have. It moves within seconds of
+a bad deploy, needs no judge and no statistics.
 
 ## The four platforms
 
-| | [promptfoo](platforms/promptfooconfig.yaml) | [Bedrock](platforms/bedrock_evaluations.py) | [Foundry](platforms/foundry_evaluation.py) | [Vertex](platforms/vertex_evaluation.py) |
+| | Open source | [Bedrock](platforms/bedrock_prompt_mgmt.py) | [AI Foundry](platforms/foundry_traffic_split.py) | [Vertex](platforms/vertex_traffic_split.py) |
 |---|---|---|---|---|
-| Deterministic assertions | Extensive | Limited | Via Prompt Flow | Limited |
-| Judge modes | Pointwise, rubric | Pointwise | Pointwise | Pointwise, pairwise, rubric |
-| Retrieval scored separately | Build it | Native | Via evaluators | Via evaluators |
-| Runs in your CI | Yes | Job-based | Job-based | Job-based |
-| **Calibrates your judge** | **No** | **No** | **No** | **No** |
+| Prompt versioning | [Build it](deploy/release.py) | Native, ARN-addressed | Native via Prompt Flow | Build it |
+| Traffic splitting | Flag service | Application layer | Endpoint-native | Endpoint-native |
+| Eval tied to deployed artifact | Build it | Separate | **Same artifact** | Separate |
+| Records served version | Build it | Invocation logs | Endpoint logs | Endpoint logs |
+| **Enforces the pair** | **Only if you do** | **No** | **No** | **No** |
 
-That last row is the one to notice. All four provide the instrument. None tells
-you its error bars. That work is yours regardless of which you pick, and it
-determines whether any of the numbers mean anything.
-
-Vertex's pairwise mode is underrated: judges are considerably better at "which
-of these two is better" than at "score this one to five", because the
-comparison cancels much of their own calibration error.
+None of them stops you deploying a new prompt against a moving model
+reference, which is exactly week three.
 
 ## Layout
 
 ```
-booking/
-  extract.py      the schema boundary. Everything past it is ordinary code.
-  properties.py   invariants over recorded responses
-  recorded.py     six real failure shapes, as fixtures rather than mocks
-evals/
-  flakiness.py    why non-deterministic tests do not compose
-  judge.py        shrinkage, sample size, detectable effect
-  coverage_split.py  which failures actually need a judge
-platforms/        promptfoo, Bedrock, Foundry, Vertex
-tests/            18 tests. Not one calls a provider.
+deploy/
+  release.py        the pair as the deployable unit. Refuses aliases.
+  canary.py         power calculations for canary and shadow
+  canary_gate.py    gates on what it can see, warns about what it cannot
+  blast_radius.py   detection time against rollback time
+  two_phase.py      stage, verify, commit. Quarantine as an alarm.
+  version_matrix.py the six week scenario
+platforms/          Bedrock, AI Foundry, Vertex
+tests/              13 tests. No provider is called.
 ```
 
-## Caveats, stated once
+## Caveats
 
-The failure catalogue is mine and the share it implies depends on the list I
-wrote. The judge sensitivity and specificity figures are illustrative inputs,
-not measurements of any real judge, and the entire point is that you should
-measure your own. The flakiness arithmetic assumes independent tests; real LLM
-test failures correlate through the shared model, which makes whole-suite
-failure lumpier without making it rarer.
+The six week history is constructed to make the pairing problem concrete, not
+drawn from a real incident. The 6% wrong rate, the $0.40 remediation cost and
+the MTTD rows are illustrative inputs, and the ratios rather than the absolute
+figures are the point. Judge sensitivity and specificity are inputs you should
+replace with your own measurement, per the previous article.
