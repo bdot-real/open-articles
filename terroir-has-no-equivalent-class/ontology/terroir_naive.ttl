@@ -1,0 +1,23 @@
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fr:   <https://example.org/fr/> .
+@prefix en:   <https://example.org/en/> .
+@prefix ex:   <https://example.org/onto/> .
+
+# The naive alignment from the article: nearest English term, asserted as equivalence.
+fr:Terroir a owl:Class ;
+    rdfs:label "terroir"@fr .
+
+en:Soil a owl:Class ;
+    rdfs:label "soil"@en .
+
+# Do not do this
+fr:Terroir owl:equivalentClass en:Soil .
+
+# Instance data
+ex:GardenCentrePottingMix a en:Soil ;
+    rdfs:label "40 L bag of potting mix"@en .
+
+ex:ClosDeVougeot a fr:Terroir ;
+    rdfs:label "Clos de Vougeot"@fr .

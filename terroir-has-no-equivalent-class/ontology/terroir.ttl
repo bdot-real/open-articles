@@ -1,0 +1,81 @@
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ex:   <https://example.org/onto/> .
+@prefix en:   <https://example.org/en/> .
+
+# The better alignment: mint the class, define it by its parts,
+# relate it outward at honest strength.
+
+ex:ProductionPlace     a owl:Class .
+ex:SoilProfile         a owl:Class .
+ex:Microclimate        a owl:Class .
+ex:CultivationTradition a owl:Class .
+
+ex:hasSoilProfile   a owl:ObjectProperty .
+ex:hasMicroclimate  a owl:ObjectProperty .
+ex:hasLocalPractice a owl:ObjectProperty .
+
+# 1. Mint the class and define it as a conjunction of properties
+ex:Terroir a owl:Class ;
+    rdfs:label "terroir"@fr , "terroir"@en ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            ex:ProductionPlace
+            [ a owl:Restriction ; owl:onProperty ex:hasSoilProfile ;
+              owl:someValuesFrom ex:SoilProfile ]
+            [ a owl:Restriction ; owl:onProperty ex:hasMicroclimate ;
+              owl:someValuesFrom ex:Microclimate ]
+            [ a owl:Restriction ; owl:onProperty ex:hasLocalPractice ;
+              owl:someValuesFrom ex:CultivationTradition ]
+        )
+    ] .
+
+# 2. Relate it to English concepts at honest strength
+ex:Terroir a skos:Concept ;
+    skos:prefLabel "terroir"@fr , "terroir"@en ;
+    skos:definition "The full set of local conditions, natural and human, that make produce from one place recognisably of that place."@en ;
+    skos:scopeNote "The causal claim (conditions produce a recognisable taste) is not expressible in OWL. It lives here, in documentation."@en ;
+    skos:relatedMatch en:Soil , en:Microclimate ;
+    skos:closeMatch   en:SenseOfPlace .
+
+en:Soil         a owl:Class , skos:Concept ; skos:prefLabel "soil"@en .
+en:Microclimate a skos:Concept ; skos:prefLabel "microclimate"@en .
+en:SenseOfPlace a skos:Concept ; skos:prefLabel "sense of place"@en .
+
+# ---- Instance data -------------------------------------------------------
+
+# A vineyard with every dimension present. Never asserted to be a Terroir.
+ex:ClosDeVougeot a ex:ProductionPlace ;
+    rdfs:label "Clos de Vougeot"@fr ;
+    ex:hasSoilProfile   ex:VougeotLimestoneClay ;
+    ex:hasMicroclimate  ex:VougeotEastSlope ;
+    ex:hasLocalPractice ex:CistercianViticulture .
+
+ex:VougeotLimestoneClay  a ex:SoilProfile .
+ex:VougeotEastSlope      a ex:Microclimate .
+ex:CistercianViticulture a ex:CultivationTradition .
+
+# An Ontario sugar bush: the word travels, the definition still holds.
+ex:NorfolkSugarBush a ex:ProductionPlace ;
+    rdfs:label "Norfolk County sugar bush"@en ;
+    ex:hasSoilProfile   ex:NorfolkSandyLoam ;
+    ex:hasMicroclimate  ex:LakeErieModeration ;
+    ex:hasLocalPractice ex:HaudenosauneeAndSettlerSugaring .
+
+ex:NorfolkSandyLoam               a ex:SoilProfile .
+ex:LakeErieModeration             a ex:Microclimate .
+ex:HaudenosauneeAndSettlerSugaring a ex:CultivationTradition .
+
+# Potting mix: it is soil, but it is not a place and has no tradition.
+ex:GardenCentrePottingMix a en:Soil , ex:SoilProfile ;
+    rdfs:label "40 L bag of potting mix"@en .
+
+# A hydroponic greenhouse: a production place with no soil and no tradition.
+ex:HydroponicGreenhouse a ex:ProductionPlace ;
+    rdfs:label "Hydroponic greenhouse"@en ;
+    ex:hasMicroclimate ex:ClimateControlledBay .
+
+ex:ClimateControlledBay a ex:Microclimate .

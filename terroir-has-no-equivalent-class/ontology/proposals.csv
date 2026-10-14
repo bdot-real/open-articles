@@ -1,0 +1,9 @@
+source,target,relation,score,approved_by,approved_on
+https://example.org/fr/Terroir,https://example.org/en/Soil,equivalentClass,0.82,,
+https://example.org/onto/Terroir,https://example.org/en/Soil,relatedMatch,0.82,,
+https://example.org/onto/Terroir,https://example.org/en/SenseOfPlace,closeMatch,0.79,,
+https://example.org/untranslatable/Saudade,https://example.org/en/Longing,exactMatch,0.88,,
+https://example.org/untranslatable/Saudade,https://example.org/en/Longing,broadMatch,0.88,,
+https://example.org/law/QuebecTrust,https://example.org/law/Trust,exactMatch,0.91,,
+https://example.org/law/Usufruct,https://example.org/law/LifeEstate,closeMatch,0.77,,
+https://example.org/law/Trust,https://example.org/en/Trust,exactMatch,0.97,a.reviewer,2026-10-14

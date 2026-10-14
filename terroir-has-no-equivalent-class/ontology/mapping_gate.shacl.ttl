@@ -1,0 +1,39 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix map:  <https://example.org/mapping/> .
+
+# "Treat any owl:equivalentClass or skos:exactMatch proposed by a model as a claim
+#  that needs a human signature, not a suggestion that needs a click."
+#
+# Mappings are recorded as reified map:Mapping nodes so they can carry provenance.
+# A strong relation must carry map:approvedBy (a person) and map:approvedOn.
+
+map:StrongMappingNeedsSignature a sh:NodeShape ;
+    sh:targetClass map:Mapping ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Strong mapping ({?rel}) has no human signature" ;
+        sh:prefixes map:prefixes ;
+        sh:select """
+            SELECT $this ?rel WHERE {
+                $this map:relation ?rel .
+                FILTER (?rel IN (owl:equivalentClass, skos:exactMatch))
+                FILTER NOT EXISTS { $this map:approvedBy ?who . $this map:approvedOn ?when . }
+            }
+        """ ;
+    ] .
+
+map:MappingHasEndpoints a sh:NodeShape ;
+    sh:targetClass map:Mapping ;
+    sh:property [ sh:path map:source ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path map:target ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path map:relation ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( owl:equivalentClass skos:exactMatch skos:closeMatch
+                          skos:broadMatch skos:narrowMatch skos:relatedMatch ) ] .
+
+map:prefixes a owl:Ontology ;
+    sh:declare [ sh:prefix "map"  ; sh:namespace "https://example.org/mapping/"^^xsd:anyURI ] ,
+               [ sh:prefix "owl"  ; sh:namespace "http://www.w3.org/2002/07/owl#"^^xsd:anyURI ] ,
+               [ sh:prefix "skos" ; sh:namespace "http://www.w3.org/2004/02/skos/core#"^^xsd:anyURI ] .

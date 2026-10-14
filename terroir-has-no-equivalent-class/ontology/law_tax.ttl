@@ -1,0 +1,91 @@
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <https://example.org/tax/> .
+@prefix law:  <https://example.org/law/> .
+
+# ---- Tax: one entity, a classification per jurisdiction -------------------
+
+ex:LegalEntity        a owl:Class .
+ex:PassThroughEntity  a owl:Class .
+ex:Corporation        a owl:Class .
+ex:PassThroughEntity  owl:disjointWith ex:Corporation .
+
+ex:AcmeLLC a ex:LegalEntity ;
+    rdfs:label "Acme LLC"@en ;
+    ex:formedIn ex:Delaware ;
+    ex:taxClassification [
+        ex:jurisdiction ex:US ;
+        ex:class        ex:PassThroughEntity ;
+        ex:basis        ex:DefaultClassificationRules
+    ] , [
+        ex:jurisdiction ex:Canada ;
+        ex:class        ex:Corporation ;
+        ex:basis        ex:CanadianEntityClassification
+    ] .
+
+ex:MapleULC a ex:LegalEntity ;
+    rdfs:label "Maple Holdings ULC"@en ;
+    ex:formedIn ex:NovaScotia ;
+    ex:taxClassification [
+        ex:jurisdiction ex:Canada ;
+        ex:class        ex:Corporation ;
+        ex:basis        ex:CanadianEntityClassification
+    ] , [
+        ex:jurisdiction ex:US ;
+        ex:class        ex:PassThroughEntity ;
+        ex:basis        ex:CheckTheBoxElection
+    ] .
+
+ex:NorthwindInc a ex:LegalEntity ;
+    rdfs:label "Northwind Inc."@en ;
+    ex:formedIn ex:Ontario ;
+    ex:taxClassification [
+        ex:jurisdiction ex:Canada ; ex:class ex:Corporation ; ex:basis ex:CanadianEntityClassification
+    ] , [
+        ex:jurisdiction ex:US ; ex:class ex:Corporation ; ex:basis ex:DefaultClassificationRules
+    ] .
+
+# ---- Law: concepts across legal systems ----------------------------------
+
+law:Trust a skos:Concept ;
+    skos:prefLabel "trust"@en , "fiducie"@fr ;
+    skos:definition "Common law: legal title held by a trustee for the benefit of beneficiaries."@en ;
+    law:system law:CommonLaw ;
+    law:hasOwner law:Trustee .
+
+law:QuebecTrust a skos:Concept ;
+    skos:prefLabel "trust"@en , "fiducie"@fr ;
+    skos:definition "Civil Code of Quebec: a patrimony by appropriation, autonomous and owned by no one."@en ;
+    law:system law:QuebecCivilLaw ;
+    skos:relatedMatch law:Trust .
+    # Deliberately no law:hasOwner. Absence is the point.
+
+law:FrenchFiducie a skos:Concept ;
+    skos:prefLabel "fiducie"@fr ;
+    skos:definition "French Civil Code (2007): property transferred to a fiduciaire and held in a separate patrimony."@en ;
+    law:system law:FrenchCivilLaw ;
+    law:hasOwner law:Fiduciaire ;
+    skos:relatedMatch law:Trust .
+
+law:Consideration a skos:Concept ;
+    skos:prefLabel "consideration"@en ;
+    law:system law:CommonLaw .
+
+law:Usufruct a skos:Concept ;
+    skos:prefLabel "usufruit"@fr , "usufruct"@en ;
+    law:system law:FrenchCivilLaw ;
+    skos:closeMatch law:LifeEstate .
+
+law:LifeEstate a skos:Concept ;
+    skos:prefLabel "life estate"@en ;
+    law:system law:CommonLaw .
+
+# Canadian bijural doublets: one federal provision addressing two systems.
+law:RealPropertyImmovable a skos:Concept ;
+    skos:prefLabel "real property"@en-x-commonlaw ,
+                   "immovable"@en-x-civillaw ,
+                   "biens réels"@fr-x-commonlaw ,
+                   "immeuble"@fr-x-civillaw .

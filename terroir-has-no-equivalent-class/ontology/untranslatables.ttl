@@ -1,0 +1,59 @@
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ex:   <https://example.org/onto/> .
+@prefix u:    <https://example.org/untranslatable/> .
+@prefix en:   <https://example.org/en/> .
+
+# The article's table of words with no English equivalent, as a SKOS vocabulary.
+# u:pattern records which of the three gap patterns each one shows.
+# u:englishStrategy records what English did: borrow (an @en label equal to the source word) or paraphrase.
+
+u:CompositeBundle   a skos:Concept ; skos:prefLabel "composite bundle"@en .
+u:ConditionedState  a skos:Concept ; skos:prefLabel "conditioned state"@en .
+u:SalienceGap       a skos:Concept ; skos:prefLabel "salience gap"@en .
+
+u:Words a skos:ConceptScheme ; skos:prefLabel "Words with no English equivalent"@en .
+
+ex:Terroir skos:inScheme u:Words ;
+    skos:prefLabel "terroir"@fr , "terroir"@en ;
+    u:pattern u:CompositeBundle .
+
+u:Schadenfreude a skos:Concept ; skos:inScheme u:Words ;
+    skos:prefLabel "Schadenfreude"@de , "Schadenfreude"@en ;
+    skos:definition "Pleasure at someone else's misfortune."@en ;
+    skos:broadMatch en:Pleasure ;
+    u:pattern u:ConditionedState .
+
+u:Hygge a skos:Concept ; skos:inScheme u:Words ;
+    skos:prefLabel "hygge"@da , "hygge"@en ;
+    skos:definition "Cosy, convivial contentment, and the social practice around it."@en ;
+    skos:relatedMatch en:Cosiness ;
+    u:pattern u:CompositeBundle .
+
+u:Saudade a skos:Concept ; skos:inScheme u:Words ;
+    skos:prefLabel "saudade"@pt ;
+    skos:definition "Longing for something absent that may never return."@en ;
+    skos:broadMatch en:Longing ;
+    u:pattern u:ConditionedState .
+
+u:Hiraeth a skos:Concept ; skos:inScheme u:Words ;
+    skos:prefLabel "hiraeth"@cy ;
+    skos:definition "Homesickness for a home that may never have existed."@en ;
+    skos:broadMatch en:Homesickness ;
+    u:pattern u:ConditionedState .
+
+u:Komorebi a skos:Concept ; skos:inScheme u:Words ;
+    skos:prefLabel "木漏れ日"@ja , "komorebi"@ja-Latn ;
+    skos:definition "Sunlight filtering through the leaves of trees."@en ;
+    u:pattern u:SalienceGap .
+
+u:WabiSabi a skos:Concept ; skos:inScheme u:Words ;
+    skos:prefLabel "侘寂"@ja , "wabi-sabi"@ja-Latn , "wabi-sabi"@en ;
+    skos:definition "Beauty found in imperfection and impermanence."@en ;
+    skos:relatedMatch en:Imperfection ;
+    u:pattern u:CompositeBundle .
+
+en:Pleasure     a skos:Concept ; skos:prefLabel "pleasure"@en .
+en:Cosiness     a skos:Concept ; skos:prefLabel "cosiness"@en .
+en:Longing      a skos:Concept ; skos:prefLabel "longing"@en .
+en:Homesickness a skos:Concept ; skos:prefLabel "homesickness"@en .
+en:Imperfection a skos:Concept ; skos:prefLabel "imperfection"@en .
